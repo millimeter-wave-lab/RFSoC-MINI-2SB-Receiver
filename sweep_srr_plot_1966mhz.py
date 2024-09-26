@@ -17,7 +17,7 @@ def get_vacc_data_power(fpga, nchannels, nfft, re_bin):
   for i in range(nchannels):
     if re_bin:
       raw1[i,:] = struct.unpack('>{:d}Q'.format(chunk), fpga.read('re_bin_synth0_{:d}'.format((i)),chunk*8,0))
-      raw2[i,:] = struct.unpack('>{:d}Q'.format(chunk), fpga.read('re_bin_synth0_{:d}'.format((i+8)),chunk*8,0))
+      raw2[i,:] = struct.unpack('>{:d}Q'.format(chunk), fpga.read('re_bin_synth1_{:d}'.format((i)),chunk*8,0))
     else:
       raw1[i,:] = struct.unpack('>{:d}Q'.format(chunk), fpga.read('synth0_{:d}'.format((i)),chunk*8,0))
       raw2[i,:] = struct.unpack('>{:d}Q'.format(chunk), fpga.read('synth1_{:d}'.format((i)),chunk*8,0))
@@ -122,7 +122,7 @@ if __name__=="__main__":
   if opts.fpgfile != '':
     bitstream = opts.fpgfile
   else:
-    fpg_prebuilt = 'models/alt_test_phase_diff_dss_ideal_2000mhz_cx_2024-09-24_1317.fpg'
+    fpg_prebuilt = 'dss_ideal_1966mhz_cx_2024-09-26_1543.fpg'
 
     print(f'Using prebuilt fpg file at {fpg_prebuilt}')
     bitstream = fpg_prebuilt
