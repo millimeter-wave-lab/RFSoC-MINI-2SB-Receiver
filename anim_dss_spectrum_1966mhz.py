@@ -42,7 +42,7 @@ def plot_spectrum(fpga, re_bin):
     if re_bin:
       Nfft = 2**9
     else:
-      Nfft = 2**11
+      Nfft = 2**13
 
     print(Nfft)
     fs = 3932.16 / 2
@@ -72,7 +72,6 @@ def plot_spectrum(fpga, re_bin):
     ax3.set_title('Sideband Rejection Ratio')
 
     ax3.set_ylim([-10, 40])  
-    # ax3.axvline(x=(3-1.13376)*1000, color='red', linestyle='--')
     
     def update(frame, *fargs):
 
@@ -115,7 +114,7 @@ if __name__ == "__main__":
         print('Operation mode not recognized, must be "pic" or "ds"')
         sys.exit()
 
-    bitstream = args.fpgfile if args.fpgfile else 'dss_ideal_1966mhz_cx_2024-09-26_1543.fpg'
+    bitstream = args.fpgfile if args.fpgfile else '8192ch/dss_ideal_1966mhz_cx_8192ch.fpg'
 
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)

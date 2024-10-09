@@ -35,7 +35,7 @@ def anim_phase_diff(fpga, re_bin):
     if re_bin:
       Nfft = 2**9
     else:
-      Nfft = 2**11
+      Nfft = 2**13
 
     print(Nfft)
     fs = 3932.16/2
@@ -56,7 +56,6 @@ def anim_phase_diff(fpga, re_bin):
     ax.set_ylabel('Phase Difference in Degrees')
     ax.set_title('Measured Phase Difference between IF Outputs')
     ax.set_ylim(-180, 180)
-    ax.axvline(x=(4.8624-3)*1000, color='red', linestyle='--')
 
     def update(frame, *fargs):
 
@@ -97,7 +96,7 @@ if __name__ == "__main__":
         print('Operation mode not recognized, must be "pic" or "ds"')
         sys.exit()
 
-    bitstream = args.fpgfile if args.fpgfile else 'dss_ideal_1966mhz_cx_2024-09-26_1543.fpg'
+    bitstream = args.fpgfile if args.fpgfile else '8192ch/dss_ideal_1966mhz_cx_8192ch.fpg'
 
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
