@@ -42,7 +42,7 @@ def plot_SRR(fpga, instrument, re_bin):
     if re_bin:
       Nfft = 2**9
     else:
-      Nfft = 2**11
+      Nfft = 2**13
     print(Nfft)
     nchannels = 8
 
@@ -53,7 +53,7 @@ def plot_SRR(fpga, instrument, re_bin):
     faxis_USB = LO + if_freqs
       
     for i in range(Nfft):
-      instrument.write(f'FREQ:CENT {faxis_LSB[-i-1]}e6')
+      instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
       time.sleep(0.1)
         
       spectrum1, spectrum2 = get_vacc_data_power(fpga, nchannels=nchannels, nfft=Nfft, re_bin=re_bin)
@@ -62,7 +62,7 @@ def plot_SRR(fpga, instrument, re_bin):
       SRR.append(diff)
       
     for i in range(Nfft):
-      instrument.write(f'FREQ:CENT {faxis_USB[i]}e6')
+      instrument.write(f'FREQ {faxis_USB[i]}e6')
       time.sleep(0.1)
       
       spectrum1, spectrum2 = get_vacc_data_power(fpga, nchannels=nchannels, nfft=Nfft, re_bin=re_bin)
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         print('Operation mode not recognized, must be "pic" or "ds"')
         sys.exit()
 
-    bitstream = args.fpgfile if args.fpgfile else 'dss_ideal_1966mhz_cx_2024-09-26_1543.fpg'
+    bitstream = args.fpgfile if args.fpgfile else '8192ch/dss_ideal_1966mhz_cx_8192ch.fpg'
 
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
