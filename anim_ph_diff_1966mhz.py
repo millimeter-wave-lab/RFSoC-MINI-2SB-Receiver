@@ -6,15 +6,16 @@ import matplotlib.animation as anim
 import casperfpga
 import argparse
 
-def get_vacc_data_re_im(fpga, nchannels, nfft, re_bin):
-  
+def get_vacc_data_power(fpga, nchannels, nfft):
+  """Get the raw data from fpga digital spectrometer"""
+
   chunk = nfft//nchannels
 
   raw1 = np.zeros((nchannels, chunk))
   raw2 = np.zeros((nchannels, chunk))
 
   for i in range(nchannels):
-    if re_bin:
+    if nfft == 512:
       raw1[i,:] = struct.unpack('>{:d}q'.format(chunk), fpga.read('re_bin_ab_re{:d}'.format((i)),chunk*8,0))
       raw2[i,:] = struct.unpack('>{:d}q'.format(chunk), fpga.read('re_bin_ab_im{:d}'.format((i)),chunk*8,0))
     else:
@@ -30,19 +31,14 @@ def get_vacc_data_re_im(fpga, nchannels, nfft, re_bin):
 
   return np.array(re, dtype=np.float64), np.array(im, dtype=np.float64)
 
-def anim_phase_diff(fpga, re_bin):
-  
-    if re_bin:
-      Nfft = 2**9
-    else:
-      Nfft = 2**13
+def anim_phase_diff(fpga, Nfft):
 
     print(Nfft)
     fs = 3932.16/2
     nchannels = 8
 
     faxis = np.linspace(0, fs, Nfft, endpoint=False)
-    re, im = get_vacc_data_re_im(fpga, nchannels=nchannels, nfft=Nfft, re_bin=re_bin)
+    re, im = get_vacc_data_re_im(fpga, nchannels=nchannels, nfft=Nfft)
     
     comp = re + 1j*im
 
@@ -59,7 +55,7 @@ def anim_phase_diff(fpga, re_bin):
 
     def update(frame, *fargs):
 
-      re, im = get_vacc_data_re_im(fpga, nchannels=nchannels, nfft=Nfft, re_bin=re_bin)
+      re, im = get_vacc_data_re_im(fpga, nchannels=nchannels, nfft=Nfft)
       comp = re + 1j*im
       line.set_ydata(np.angle(fft.fftshift(comp),deg=True))
 
@@ -70,13 +66,13 @@ def anim_phase_diff(fpga, re_bin):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Shows real time phase difference between IF Outputs with given options',
-        usage='anim_ph_diff_1966mhz.py <HOSTNAME_or_IP> cx|real [options]'
+        usage='anim_ph_diff_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> [options]'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('re_bin', type=str, choices=['pic', 'ds'], help='Operation mode: "pic" or "ds"')
+    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
 
-    parser.add_argument('-l', '--acc_len', type=int, default=4*1024,
+    parser.add_argument('-l', '--acc_len', type=int, default=512,
                         help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
     parser.add_argument('-s', '--skip', action='store_true',
                         help='Skip programming and begin to plot data')
@@ -86,17 +82,13 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     hostname = args.hostname
-    re_bin = args.re_bin
+    Nfft = args.nfft
 
-    if re_bin == 'pic':
-        re_bin_mode = 1
-    elif re_bin == 'ds':
-        re_bin_mode = 0
+    if Nfft == 512:
+      bitstream = args.fpgfile if args.fpgfile else '16384ch/dss_ideal_1966mhz_cx_16384ch.fpg'
+
     else:
-        print('Operation mode not recognized, must be "pic" or "ds"')
-        sys.exit()
-
-    bitstream = args.fpgfile if args.fpgfile else '8192ch/dss_ideal_1966mhz_cx_8192ch.fpg'
+      bitstream = args.fpgfile if args.fpgfile else f'{Nfft}ch/dss_ideal_1966mhz_cx_{Nfft}ch.fpg'
 
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
@@ -122,6 +114,6 @@ if __name__ == "__main__":
     print('Done')
 
     try:
-        anim_phase_diff(fpga, re_bin_mode)
+        anim_phase_diff(fpga, Nfft)
     except KeyboardInterrupt:
         sys.exit()
