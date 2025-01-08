@@ -45,8 +45,8 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
       raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
       fpga.read(f'synth1_{i}', add_width * data_width, 0))
     
-  interleave_q = raw1.T.ravel().astype(np.float64) 
-  interleave_i = raw2.T.ravel().astype(np.float64)
+  interleave_i = raw1.T.ravel().astype(np.float64) 
+  interleave_q = raw2.T.ravel().astype(np.float64)
 
   return interleave_i, interleave_q
 
@@ -72,7 +72,7 @@ def plot_SRR(fpga, instrument, Nfft, n_bits, bin_step):
       time.sleep(0.1)
 
       spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-      diff = 10 * (np.log10(fft.fftshift(spectrum1+1)[-i-1]/fft.fftshift(spectrum2+1)[-i-1]))
+      diff = 10 * (np.log10(fft.fftshift(spectrum2+1)[-i-1]/fft.fftshift(spectrum1+1)[-i-1]))
 
       print(faxis_LSB[-i-1]/1000,diff)
       SRR.append(diff)
@@ -82,7 +82,7 @@ def plot_SRR(fpga, instrument, Nfft, n_bits, bin_step):
       time.sleep(0.1)
       
       spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-      diff = 10 * (np.log10(fft.fftshift(spectrum2+1)[i]/fft.fftshift(spectrum1+1)[i]))
+      diff = 10 * (np.log10(fft.fftshift(spectrum1+1)[i]/fft.fftshift(spectrum2+1)[i]))
       
       print(faxis_USB[i]/1000,diff)
       SRR.append(diff)
@@ -108,13 +108,13 @@ def plot_SRR(fpga, instrument, Nfft, n_bits, bin_step):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Sweeps frequencies and plots SRR with given options',
-        usage='sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width>[options]'
+        usage='python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width> [options]'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
     parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
-    parser.add_argument('n_bits', type=int, help='BRAMs data output width')
+    parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
     parser.add_argument('-l', '--acc_len', type=int, default=2**9,
                         help='Set the number of vectors to accumulate between dumps')

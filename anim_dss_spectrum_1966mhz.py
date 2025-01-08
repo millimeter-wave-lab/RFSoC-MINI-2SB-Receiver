@@ -44,8 +44,8 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
       raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
       fpga.read(f'synth1_{i}', add_width * data_width, 0))
     
-  interleave_q = raw1.T.ravel().astype(np.float64) 
-  interleave_i = raw2.T.ravel().astype(np.float64)
+  interleave_i = raw1.T.ravel().astype(np.float64) 
+  interleave_q = raw2.T.ravel().astype(np.float64)
 
   return interleave_i, interleave_q
 
@@ -65,7 +65,7 @@ def plot_spectrum(fpga, Nfft, n_bits):
 
     spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
 
-    line1, = ax1.plot(faxis, 10 * np.log10(fft.fftshift(spectrum1+1)), '-')
+    line1, = ax1.plot(faxis, 10 * np.log10(fft.fftshift(spectrum2+1)), '-')
     ax1.set_xlabel('Frequency (MHz)')
     ax1.set_ylabel('Power (dB arb.)')
     ax1.set_title('LSB')
@@ -73,7 +73,7 @@ def plot_spectrum(fpga, Nfft, n_bits):
     # ax1.axvline((3-1.10712)*1000, color = "red")
     ax1.set_ylim([0, 150]) 
 
-    line2, = ax2.plot(faxis, 10 * np.log10(fft.fftshift(spectrum2+1)), '-')
+    line2, = ax2.plot(faxis, 10 * np.log10(fft.fftshift(spectrum1+1)), '-')
     ax2.set_xlabel('Frequency (MHz)')
     ax2.set_ylabel('Power (dB arb.)')
     ax2.set_title('USB')
@@ -92,8 +92,8 @@ def plot_spectrum(fpga, Nfft, n_bits):
     def update(frame, *fargs):
 
         spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-        line1.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
-        line2.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
+        line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
+        line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
         # line3.set_ydata(np.abs(10 * np.log10(fft.fftshift(spectrum1+1)/fft.fftshift(spectrum2+1))))
 
     v = anim.FuncAnimation(fig, update, frames=1, repeat=True, fargs=None, interval=10)
@@ -104,12 +104,12 @@ def plot_spectrum(fpga, Nfft, n_bits):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Shows real time sidebands spectrums and SRR with given options',
-        usage='python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width>[options]'
+        usage='python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> [options]'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
     parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
-    parser.add_argument('n_bits', type=int, help='BRAMs data output width')
+    parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
     parser.add_argument('-l', '--acc_len', type=int, default=2**9,
                         help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
