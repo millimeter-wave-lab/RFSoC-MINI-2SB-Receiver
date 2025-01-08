@@ -107,13 +107,13 @@ def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Sweeps frequencies and plots phase difference with given options',
-        usage='sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width>[options]'
+        usage='python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width> [options]'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
     parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
-    parser.add_argument('n_bits', type=int, help='BRAMs data output width')
+    parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
     parser.add_argument('-l', '--acc_len', type=int, default=2**10,
                         help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
