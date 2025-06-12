@@ -5,24 +5,16 @@ import matplotlib.pyplot as plt
 import casperfpga
 import pyvisa
 import argparse
+import csv
 
 def get_vacc_data_re_im(fpga, n_outputs, nfft, n_bits):
   """Get the raw data from fpga digital correlator"""
 
   bins_out = nfft//n_outputs    # Number of bins for each output
-
-  if n_bits == 64:    # Shared BRAMs data width of 8 bytes (64 bits)
     
-    data_width = 8    # 8 bytes (64 bits)
+  data_width = 8    # 8 bytes (64 bits)
 
-    data_type = 'q'   # Format character 'long long'
-  
-  else:               # Shared BRAMs data width of 4 bytes (32 bits)
-    
-    data_width = 4    # 4 bytes (32 bits)
-
-    data_type = 'l'   # Format character 'long'
-  
+  data_type = 'q'   # Format character 'long long'
 
   add_width = bins_out    # Number of "Data Width" words of the implemented BRAM
                           # Must be set to store at least the number of output bins of each bram
@@ -32,77 +24,76 @@ def get_vacc_data_re_im(fpga, n_outputs, nfft, n_bits):
     
   for i in range(n_outputs):    # Extract data from BRAMs blocks for each output
     
-    if nfft == 512:   # Re_bin
-      raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f're_bin_ab_re{i}', add_width * data_width, 0))
-      raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}', 
-      fpga.read(f're_bin_ab_im{i}', add_width * data_width, 0))
-    
-    else:   # High resolution
-      raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f'ab_re{i}', add_width * data_width, 0))
-      raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f'ab_im{i}', add_width * data_width, 0))
+    raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
+    fpga.read(f'ab_re{i}', add_width * data_width, 0))
+    raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
+    fpga.read(f'ab_im{i}', add_width * data_width, 0))
 
   re = raw1.T.ravel().astype(np.float64)
   im = raw2.T.ravel().astype(np.float64)
 
   return re, im
 
-def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step):
-  '''Sweeps frequencies and plots phase difference with given options'''
+def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step, output_file='phase_diff_data.csv'):
+    '''Sweeps frequencies and plots phase difference with given options'''
 
-  fs = 3932.16/2    # Bandwidth
-  LO = 3000   # Local Oscilator
-  phase = []    # Phase Difference
-  try:
+    fs = 3932.16/2      # Bandwidth
+    LO = 3000       # Local Oscillator
+    phase = []      # Phase Difference
+    freq_data = []
+    
+    try:
+        n_outputs = 8
+        if_freqs = np.linspace(0, fs, Nfft, endpoint=False)
+        faxis_LSB = LO - if_freqs
+        faxis_USB = LO + if_freqs
 
-    n_outputs = 8
+        for i in range(0, Nfft, bin_step):
+            instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
+            time.sleep(0.1)
 
-    if_freqs = np.linspace(0, fs, Nfft, endpoint=False)
+            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            comp = fft.fftshift(re + 1j*im)
+            angle = np.angle(comp[-1-i], deg=True)
+            
+            freq_data.append(faxis_LSB[-i-1] / 1000)
+            phase.append(angle)
+            print(faxis_LSB[-i-1]/1000, angle)
 
-    faxis_LSB = LO - if_freqs
+        for i in range(0, Nfft, bin_step):
+            instrument.write(f'FREQ {faxis_USB[i]}e6')
+            time.sleep(0.1)
 
-    faxis_USB = LO + if_freqs
+            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            comp = fft.fftshift(re + 1j*im)
+            angle = np.angle(comp[i], deg=True)
+            
+            freq_data.append(faxis_USB[i] / 1000)
+            phase.append(angle)
+            print(faxis_USB[i]/1000, angle)
+    
+    except KeyboardInterrupt:
+        print("User interruption. Plotting data...")
 
-    for i in range(0, Nfft, bin_step):
-      instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
-      time.sleep(0.1)
+    # Save CSV
+    with open(output_file, 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        csv_writer.writerow(["Frequency (MHz)", "Phase Difference (degrees)"])
+        csv_writer.writerows(zip(freq_data, phase))
 
-      re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-      comp = fft.fftshift(re + 1j*im)
-      angle = np.angle(comp[-1-i], deg=True)
+    faxis = np.concatenate((faxis_LSB[::-1][::bin_step], faxis_USB[::bin_step]))[:len(phase)]
 
-      print(faxis_LSB[-i-1]/1000, angle)
-      phase.append(angle)
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    ax.grid()
+    ax.plot(faxis, phase, '-', color="black")
+    
+    ax.set_xlabel('RF Frequency (MHz)')
+    ax.set_ylabel('Phase Difference in Degrees')
+    ax.set_title('Measured Phase Difference between IF Outputs')
+    ax.set_ylim(-180, 180)
 
-    for i in range(0, Nfft, bin_step):
-      instrument.write(f'FREQ {faxis_USB[i]}e6')
-      time.sleep(0.1)
-
-      re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-      comp = fft.fftshift(re + 1j*im)
-      angle = np.angle(comp[i], deg=True)
-
-      print(faxis_USB[i]/1000, angle)
-      phase.append(angle)      
-
-  except KeyboardInterrupt:
-    print("User interruption. Plotting data...")
-
-  faxis = np.concatenate((faxis_LSB[::-1][::bin_step], faxis_USB[::bin_step]))[:len(phase)]
-
-  fig = plt.figure()
-  ax = fig.add_subplot(111)
-  ax.grid();
-  line, = ax.plot(faxis, phase, '-', color="black")
-
-  ax.set_xlabel('RF Frequency (MHz)')
-  ax.set_ylabel('Phase Difference in Degrees')
-  ax.set_title('Measured Phase Difference between IF Outputs')
-  ax.set_ylim(-180, 180)
-
-  plt.show()
+    plt.show()
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
@@ -115,12 +106,8 @@ if __name__ == "__main__":
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
-    parser.add_argument('-l', '--acc_len', type=int, default=2**10,
+    parser.add_argument('-l', '--acc_len', type=int, default=2**13,
                         help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
-    parser.add_argument('-s', '--skip', action='store_true',
-                        help='Skip programming and begin to plot data')
-    parser.add_argument('-b', '--fpgfile', type=str, default='',
-                        help='Specify the FPG file to load')
 
     args = parser.parse_args()
 
@@ -130,19 +117,15 @@ if __name__ == "__main__":
     n_bits = args.data_output_width
     
     # Use your .fpg file
-    bitstream = args.fpgfile if args.fpgfile else '8192ch_32bits_reset/dss_ideal_8192ch_32bits_reset_1966mhz_cx.fpg'
+    bitstream = '/home/jose/Workspace/rfsoc_models/DSS/dss_ideal_16384ch_1966mhz_cx/outputs/dss_ideal_16384ch_1966mhz_cx_2024-10-24_1244.fpg'
 
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
     time.sleep(1)
 
-    if not args.skip:
-        print(f'Programming FPGA with {bitstream}...')
-        fpga.upload_to_ram_and_program(bitstream)
-        print('Done')
-    else:
-        fpga.get_system_information()
-        print('Skip programming FPGA...')
+    print(f'Programming FPGA with {bitstream}...')
+    fpga.upload_to_ram_and_program(bitstream)
+    print('Done')
 
     print('Initializing RFDC block...')    
     fpga.adcs['rfdc'].init()
@@ -153,7 +136,6 @@ if __name__ == "__main__":
 
     print('Configuring accumulation period...')
     fpga.write_int('acc_len', args.acc_len)
-    # fpga.write_int('acc_len_pic', args.acc_len)
     
     if n_bits == 32:
        fpga.write_int('gain', 2**10)
@@ -173,6 +155,6 @@ if __name__ == "__main__":
     print('Done')
 
     try:
-        plot_phase_diff(fpga, instrument, Nfft, n_bits, 32)
+        plot_phase_diff(fpga, instrument, Nfft, n_bits, 1)
     except KeyboardInterrupt:
         sys.exit()
