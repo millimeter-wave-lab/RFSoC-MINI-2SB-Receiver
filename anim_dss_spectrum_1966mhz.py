@@ -23,6 +23,12 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
 
     data_type = 'L'   # Format character 'unsigned long'
   
+  if nfft == 512:
+     
+     bram_name = 're_bin_synth'
+
+  else:
+     bram_name = 'synth'
 
   add_width = bins_out    # Number of "Data Width" words of the implemented BRAM
                           # Must be set to store at least the number of output bins of each bram
@@ -32,17 +38,11 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
   
   for i in range(n_outputs):    # Extract data from BRAMs blocks for each output
     
-    if nfft == 512:   # Re_bin spectrum
-      raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f're_bin_synth0_{i}', add_width * data_width, 0))
-      raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}', 
-      fpga.read(f're_bin_synth1_{i}', add_width * data_width, 0))
-    
-    else:   # High resolution spectrum
-      raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f'synth0_{i}', add_width * data_width, 0))
-      raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
-      fpga.read(f'synth1_{i}', add_width * data_width, 0))
+    raw1[i,:] = struct.unpack(f'>{bins_out}{data_type}',
+    fpga.read(f'{bram_name}0_{i}', add_width * data_width, 0))
+
+    raw2[i,:] = struct.unpack(f'>{bins_out}{data_type}',
+    fpga.read(f'{bram_name}1_{i}', add_width * data_width, 0))
     
   interleave_i = raw1.T.ravel().astype(np.float64) 
   interleave_q = raw2.T.ravel().astype(np.float64)
@@ -50,14 +50,13 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
   return interleave_i, interleave_q
 
 def plot_spectrum(fpga, Nfft, n_bits):
-
-    # fig, (ax1, ax2, ax3) = plt.subplots(3, 1) 
+    
     fig, (ax1, ax2) = plt.subplots(1, 2) 
     ax1.grid()
     ax2.grid()
-    # ax3.grid()
 
     print(Nfft)
+
     fs = 3932.16 / 2
     n_outputs = 8
 
@@ -70,31 +69,22 @@ def plot_spectrum(fpga, Nfft, n_bits):
     ax1.set_ylabel('Power (dB arb.)')
     ax1.set_title('LSB')
 
-    # ax1.axvline((3-1.10712)*1000, color = "red")
-    ax1.set_ylim([0, 150]) 
+    # ax1.axvline(3610.56-3000, color = "red")
+    ax1.set_ylim([0, 160]) 
 
     line2, = ax2.plot(faxis, 10 * np.log10(fft.fftshift(spectrum1+1)), '-')
     ax2.set_xlabel('Frequency (MHz)')
     ax2.set_ylabel('Power (dB arb.)')
     ax2.set_title('USB')
     
-    # ax2.axvline((3-1.10712)*1000, color = "red")
-    ax2.set_ylim([0, 150])  
+    # ax2.axvline(3610.56-3000, color = "red")
+    ax2.set_ylim([0, 160])
 
-    # line3, = ax3.plot(faxis, np.abs(10 * np.log10(fft.fftshift(spectrum1+1)/fft.fftshift(spectrum2+1))), '-')
-    # ax3.set_xlabel('Frequency (MHz)')
-    # ax3.set_ylabel('SRR (dB)')
-    # ax3.set_title('Sideband Rejection Ratio')
-    
-    # # ax3.axvline((3-1.10712)*1000, color = "red")
-    # ax3.set_ylim([-10, 100])  
-    
     def update(frame, *fargs):
 
         spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
         line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
         line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
-        # line3.set_ydata(np.abs(10 * np.log10(fft.fftshift(spectrum1+1)/fft.fftshift(spectrum2+1))))
 
     v = anim.FuncAnimation(fig, update, frames=1, repeat=True, fargs=None, interval=10)
     plt.tight_layout() 
@@ -111,12 +101,8 @@ if __name__ == "__main__":
     parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
-    parser.add_argument('-l', '--acc_len', type=int, default=2**9,
+    parser.add_argument('-l', '--acc_len', type=int, default=2**13,
                         help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
-    parser.add_argument('-s', '--skip', action='store_true',
-                        help='Skip programming and begin to plot data')
-    parser.add_argument('-b', '--fpgfile', type=str, default='',
-                        help='Specify the FPG file to load')
 
     args = parser.parse_args()
 
@@ -124,20 +110,16 @@ if __name__ == "__main__":
     Nfft = args.nfft
     n_bits = args.data_output_width
 
-    # Use your .fpg file    
-    bitstream = args.fpgfile if args.fpgfile else '8192ch_32bits_reset/dss_ideal_8192ch_32bits_reset_1966mhz_cx.fpg'
+    # Use your .fpg file
+    bitstream = '/home/jose/Workspace/RFSoC-MINI-2SB-Receiver/32_bits_models/8192ch_32bits_reset/dss_ideal_first_quant_8192ch_32bits_reset_1966mhz_cx.fpg'
     
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
     time.sleep(0.2)
 
-    if not args.skip:
-        print(f'Programming FPGA with {bitstream}...')
-        fpga.upload_to_ram_and_program(bitstream)
-        print('Done')
-    else:
-        fpga.get_system_information()
-        print('Skip programming FPGA...')
+    print(f'Programming FPGA with {bitstream}...')
+    fpga.upload_to_ram_and_program(bitstream)
+    print('Done')
 
     print('Initializing RFDC block...')
     fpga.adcs['rfdc'].init()
@@ -148,10 +130,13 @@ if __name__ == "__main__":
 
     print('Configuring accumulation period...')
     fpga.write_int('acc_len', args.acc_len)
-    # fpga.write_int('acc_len_pic', args.acc_len)
-    
+    time.sleep(0.2)
+    fpga.write_int('acc_len_re_bin', args.acc_len)
+    time.sleep(0.2)
+
     if n_bits == 32:
-       fpga.write_int('gain', 2**10)
+       fpga.write_int('gain', 2**20)
+       fpga.write_int('gain_re_bin', 2**20)
     time.sleep(1)
     print('Done')
 
