@@ -20,7 +20,7 @@ Each model includes:
 
 ### 64 bits models (Experimental Only)
 There is also three 64-bits models designed and used in laboratory for test ideal sideband separation. These models are available for the next spectral resolutions:
-- 2038 channels
+- 2048 channels
 - 8192 channels
 - 16384 channels
 ## 🐍 Python Scripts
