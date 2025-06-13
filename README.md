@@ -25,15 +25,13 @@ There is also three 64-bits models designed and used in laboratory for test idea
 - 16384 channels
 ## 🐍 Python Scripts
 
-This repository includes Python scripts for initializing the FPGA, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra).
+This repository includes Python scripts for initializing the RFSoC, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra). 
 
 ### Mini Implementation
 
 | File | Description |
 |------|-------------|
-| `simple_bram_vacc.slx` | Vector accumulator using BRAM. Useful for spectral accumulation in DSP pipelines. |
-| `spectrometer_model.slx` | Top-level spectrometer model including ADC interface, FFT processing, and memory storage. |
-| `adc_capture.slx` | Minimal setup to capture raw ADC data from the FPGA and stream it out. |
+| `a` | a |
 
 Before running the scripts, install the dependencies:
 
