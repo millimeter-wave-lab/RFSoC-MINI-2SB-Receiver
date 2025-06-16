@@ -35,3 +35,5 @@ This repository includes Python scripts for initializing the RFSoC, configuring 
 | `sweep_ph_plot_1966mhz.py` | Sweeps across the full bandwidth and calculates phase difference. <br>**Usage:** `python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width>` |
 | `plot_srr_ph_diff.py` | Plots SRR or phase difference from a CSV file. <br>**Usage:** `python plot_srr_ph_diff.py` |
 | `test_spec_cnt.py` | Tests the accumulation counter. <br>**Usage:** `python test_spec_cnt.py` |
+
+### Mini Implementation
