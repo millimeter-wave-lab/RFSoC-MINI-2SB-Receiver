@@ -31,9 +31,9 @@ This repository includes Python scripts for initializing the RFSoC, configuring 
 
 | File | Description |
 |------|-------------|
-| `a` | a |
-
-Before running the scripts, install the dependencies:
-
-```bash
-pip install -r requirements.txt
+| `anim_dss_spectrum_1966mhz.py` | Plots the spectrum in real time for a 1.96608 GHz bandwidth. <br>**Usage:** `python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> [options]` |
+| `anim_dss_spectrum_65536ch_1966mhz.py` | Real-time spectrum plotter for 65536-channel models, selects first or second half of the spectrum via `part` argument. <br>**Usage:** `python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> <part>` (where `part` = 1 or 2) |
+| `sweep_srr_plot_1966mhz.py` | Performs a sweep across the full bandwidth and computes the Sideband Rejection Ratio (SRR). <br>**Usage:** `python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width> [options]` |
+| `sweep_ph_plot_1966mhz.py` | Sweeps across the full bandwidth and calculates phase difference. <br>**Usage:** `python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width> [options]` |
+| `plot_srr_ph_diff.py` | Plots SRR or phase difference from a CSV file. <br>**Usage:** `python plot_srr_ph_diff.py` |
+| `test_spec_cnt.py` | Tests the accumulation counter. <br>**Usage:** `python test_spec_cnt.py` |
