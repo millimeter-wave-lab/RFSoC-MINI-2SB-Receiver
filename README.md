@@ -27,8 +27,6 @@ There is also three 64-bits models designed and used in laboratory for test idea
 
 This repository includes Python scripts for initializing the RFSoC, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra). 
 
-### Mini Implementation
-
 | File | Description |
 |------|-------------|
 | `anim_dss_spectrum_1966mhz.py` | Plots the spectrum in real time for a 1.96608 GHz bandwidth. <br>**Usage:** `python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> [options]` |
