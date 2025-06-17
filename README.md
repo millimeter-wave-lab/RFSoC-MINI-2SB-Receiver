@@ -23,7 +23,7 @@ There is also three 64-bits models designed and used in laboratory for test idea
 - 2048 channels
 - 8192 channels
 - 16384 channels
-## 🐍 Python Scripts
+## 💻 Python Scripts
 
 This repository includes Python scripts for initializing the RFSoC, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra). 
 
@@ -36,4 +36,61 @@ This repository includes Python scripts for initializing the RFSoC, configuring 
 | `plot_srr_ph_diff.py` | Plots SRR or phase difference from a CSV file. <br>**Usage:** `python plot_srr_ph_diff.py` |
 | `test_spec_cnt.py` | Tests the accumulation counter. <br>**Usage:** `python test_spec_cnt.py` |
 
-### Mini Implementation
+## 📡 Mini Implementation
+
+This section includes Python and C++ scripts used for communication testing and deployment of the RFSoC-based spectrometer system at the Southern Millimeter Wave Telescope (Mini). Some scripts run on the RFSoC board, while others run on the control computer or data server.
+
+### 🐍 Python Scripts
+
+| File | Description |
+|------|-------------|
+| `rfsoc4x2_spec_ini.py` | Initializes and programs the RFSoC with the selected spectrometer model. <br>**Usage:** `python rfsoc4x2_spec_ini.py` |
+| `cpp_interface.py` | Python interface that repeatedly requests spectra via the C++ client and measures the response time. Results are logged to a `.csv` file. <br>**Usage:** `python cpp_interface.py` |
+| `plot.py` | Plots delays recorded during spectrum acquisition requests. <br>**Usage:** `python plot.py` |
+| `rfsoc_mini_client.py` | Python client script used in the Mini radiotelescope Data Server. Requests spectra and transmits them to the PIC32 microcontroller. Does not log timings. <br>**Usage:** `python rfsoc_mini_client.py` |
+
+### 💻 C++ Scripts
+
+| File | Description |
+|------|-------------|
+| `rfsoc_server.cpp` | C++ server that runs on the RFSoC. Waits for incoming client connections and serves spectrum data. |
+| `cpp_socket.cpp` | C++ client that connects to the RFSoC server and requests spectra. It is compiled as a Python extension using pybind11, allowing integration with Python scripts. |
+
+### 🚀 Execution Flow
+
+Below is the standard sequence to run the RFSoC spectrometer system from both ends:
+
+1. **Program the RFSoC with the Spectrometer Bitstream**  
+   This step loads the selected spectrometer model onto the RFSoC using the initialization script:
+
+   ```bash
+   python rfsoc4x2_spec_ini.py
+
+2. **Start the RFSoC Server**  
+   Connect via SSH to the RFSoC and execute:
+
+   ```bash
+   g++ rfsoc_server.cpp -o rfsoc_server
+   sudo ./rfsoc_server
+
+3. **Compile the C++ Socket Client**  
+   On the control computer, compile:
+
+   ```bash
+   c++ -O3 -Wall -shared -std=c++11 -fPIC `python3 -m pybind11 --includes` cpp_socket.cpp -o cpp_socket`python3-config --extension-suffix`
+
+4. **Run the Python Interface**  
+   Choose one of the following scripts depending on the use case:
+
+   - **Laboratory testing interface** – This script repeatedly requests spectra via the C++ client and measures the response time. It logs the delays in a `.csv` file for later analysis.
+
+     ```bash
+     python cpp_interface.py
+     ```
+
+   - **Mini telescope deployment interface** – This script runs on the Data Server located at the Mini telescope site. It requests spectra from the RFSoC and sends them directly to the PIC32 microcontroller, without logging timing information.
+
+     ```bash
+     python rfsoc_mini_client.py
+     ```
+
