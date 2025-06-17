@@ -56,7 +56,7 @@ This section includes Python and C++ scripts used for communication testing and 
 | `rfsoc_server.cpp` | C++ server that runs on the RFSoC. Waits for incoming client connections and serves spectrum data. |
 | `cpp_socket.cpp` | C++ client that connects to the RFSoC server and requests spectra. It is compiled as a Python extension using pybind11, allowing integration with Python scripts. |
 
-### 🚀 Execution Flow
+### 🔄 Execution Flow
 
 Below is the standard sequence to run the RFSoC spectrometer system from both ends:
 
@@ -93,4 +93,3 @@ Below is the standard sequence to run the RFSoC spectrometer system from both en
      ```bash
      python rfsoc_mini_client.py
      ```
-
