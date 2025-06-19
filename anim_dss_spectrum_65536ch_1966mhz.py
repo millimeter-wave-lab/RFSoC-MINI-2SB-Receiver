@@ -51,42 +51,61 @@ def plot_spectrum(fpga, Nfft, n_bits, n):
 
     fs = 3932.16 / 2
     n_outputs = 8
-
-    faxis = np.linspace(0,fs/2, Nfft ,endpoint=False) + (n-1)*fs/2
-
+       
     spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
 
-    line1, = ax1.plot(faxis, 10 * np.log10(fft.fftshift(spectrum2+1)), '-')
+    if n == 1:
+       faxis = np.linspace(0,fs/2, Nfft ,endpoint=False)
+       LSB = 10 * np.log10(fft.fftshift(spectrum2+1))
+       USB = 10 * np.log10(fft.fftshift(spectrum1+1))
+
+    else:
+       faxis = np.linspace(fs/2,fs, Nfft ,endpoint=False)[1:]
+       LSB = 10 * np.log10(fft.fftshift(spectrum2+1))[:-1]
+       USB = 10 * np.log10(fft.fftshift(spectrum2+1))[:-1]
+
+    line1, = ax1.plot(faxis, LSB, '-')
     ax1.set_xlabel('Frequency (MHz)')
     ax1.set_ylabel('Power (dB arb.)')
     ax1.set_title('LSB')
 
-    # ax1.axvline(3610.56-3000, color = "red")
+    # ax1.axvline(1474.56, color = "red")
+    # ax1.set_xlim([1474.47, 1474.65]) 
     ax1.set_ylim([0, 160]) 
 
-    line2, = ax2.plot(faxis, 10 * np.log10(fft.fftshift(spectrum1+1)), '-')
+    line2, = ax2.plot(faxis, USB, '-')
     ax2.set_xlabel('Frequency (MHz)')
     ax2.set_ylabel('Power (dB arb.)')
     ax2.set_title('USB')
     
-    # ax2.axvline(3610.56-3000, color = "red")
+    # ax2.axvline(1474.56, color = "red")
+    # ax2.set_xlim([1474.47, 1474.65])
     ax2.set_ylim([0, 160])
 
-    def update(frame, *fargs):
+    if n == 1:
+       
+        def update(frame, *fargs):
 
-        spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
-        line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
-        line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
+            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
+            line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
 
+    else:
+       
+        def update(frame, *fargs):
+
+            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1))[:-1])
+            line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1))[:-1])
+    
     v = anim.FuncAnimation(fig, update, frames=1, repeat=True, fargs=None, interval=10)
     plt.tight_layout() 
     plt.show()
 
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Shows real time sidebands spectrums and SRR with given options',
-        usage='python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> [options]'
+        usage='python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> <part>[options]'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
