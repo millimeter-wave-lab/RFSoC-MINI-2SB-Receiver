@@ -94,15 +94,15 @@ def plot_spectrum(fpga, Nfft, n_bits):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Shows real time sidebands spectrums and SRR with given options',
-        usage='python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> [options]'
+        usage='python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width>'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
+    parser.add_argument('nfft', type=int, help='Nfft Size')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
 
     parser.add_argument('-l', '--acc_len', type=int, default=2**13,
-                        help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
+                        help='Set the number of vectors to accumulate between dumps.')
 
     args = parser.parse_args()
 
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     n_bits = args.data_output_width
 
     # Use your .fpg file
-    bitstream = '/home/jose/Workspace/RFSoC-MINI-2SB-Receiver/32_bits_models/8192ch_32bits_reset/dss_ideal_first_quant_8192ch_32bits_reset_1966mhz_cx.fpg'
+    bitstream = '/home/jose/Workspace/RFSoC-MINI-2SB-Receiver/32_bits_models/65536ch_32bits_reset/dss_ideal1_65536ch_32bits_reset_1966mhz_cx.fpg'
     
     print(f'Connecting to {hostname}...')
     fpga = casperfpga.CasperFpga(hostname)
@@ -136,7 +136,7 @@ if __name__ == "__main__":
 
     if n_bits == 32:
        fpga.write_int('gain', 2**20)
-       fpga.write_int('gain_re_bin', 2**20)
+       fpga.write_int('gain_re_bin', (2**20)//(Nfft//512))
     time.sleep(1)
     print('Done')
 

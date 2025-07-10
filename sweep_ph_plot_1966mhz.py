@@ -7,7 +7,7 @@ import pyvisa
 import argparse
 import csv
 
-def get_vacc_data_re_im(fpga, n_outputs, nfft, n_bits):
+def get_vacc_data_re_im(fpga, n_outputs, nfft):
   """Get the raw data from fpga digital correlator"""
 
   bins_out = nfft//n_outputs    # Number of bins for each output
@@ -34,7 +34,7 @@ def get_vacc_data_re_im(fpga, n_outputs, nfft, n_bits):
 
   return re, im
 
-def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step, output_file='phase_diff_data.csv'):
+def plot_phase_diff(fpga, instrument, Nfft, bin_step, output_file='phase_diff_data.csv'):
     '''Sweeps frequencies and plots phase difference with given options'''
 
     fs = 3932.16/2      # Bandwidth
@@ -52,7 +52,7 @@ def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step, output_file='phase
             instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
             time.sleep(0.1)
 
-            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft)
             comp = fft.fftshift(re + 1j*im)
             angle = np.angle(comp[-1-i], deg=True)
             
@@ -64,7 +64,7 @@ def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step, output_file='phase
             instrument.write(f'FREQ {faxis_USB[i]}e6')
             time.sleep(0.1)
 
-            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            re, im = get_vacc_data_re_im(fpga, n_outputs=n_outputs, nfft=Nfft)
             comp = fft.fftshift(re + 1j*im)
             angle = np.angle(comp[i], deg=True)
             
@@ -98,23 +98,20 @@ def plot_phase_diff(fpga, instrument, Nfft, n_bits, bin_step, output_file='phase
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Sweeps frequencies and plots phase difference with given options',
-        usage='python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width> [options]'
+        usage='python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address>'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
+    parser.add_argument('nfft', type=int, help='Nfft Size')
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
-    parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
-
     parser.add_argument('-l', '--acc_len', type=int, default=2**13,
-                        help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
+                        help='Set the number of vectors to accumulate between dumps.')
 
     args = parser.parse_args()
 
     hostname = args.hostname
     Nfft = args.nfft
     rf_instrument = args.rf_instrument
-    n_bits = args.data_output_width
     
     # Use your .fpg file
     bitstream = '/home/jose/Workspace/rfsoc_models/DSS/dss_ideal_16384ch_1966mhz_cx/outputs/dss_ideal_16384ch_1966mhz_cx_2024-10-24_1244.fpg'
@@ -136,11 +133,6 @@ if __name__ == "__main__":
 
     print('Configuring accumulation period...')
     fpga.write_int('acc_len', args.acc_len)
-    
-    if n_bits == 32:
-       fpga.write_int('gain', 2**10)
-    time.sleep(1)
-    print('Done')
 
     print('Resetting counters...')
     fpga.write_int('cnt_rst', 1)
@@ -155,6 +147,6 @@ if __name__ == "__main__":
     print('Done')
 
     try:
-        plot_phase_diff(fpga, instrument, Nfft, n_bits, 1)
+        plot_phase_diff(fpga, instrument, Nfft, 1)
     except KeyboardInterrupt:
         sys.exit()

@@ -113,14 +113,13 @@ def sweep_SRR(fpga, instrument, Nfft, n_bits, bin_step, output_file='srr_data.cs
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Sweeps frequencies and plots SRR with given options',
-        usage='python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width> [options]'
+        usage='python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width>'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
+    parser.add_argument('nfft', type=int, help='Nfft Size')
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
-
     parser.add_argument('-l', '--acc_len', type=int, default=2**13,
                         help='Set the number of vectors to accumulate between dumps')
 
@@ -158,7 +157,7 @@ if __name__ == "__main__":
 
     if n_bits == 32:
        fpga.write_int('gain', 2**20)
-       fpga.write_int('gain_re_bin', 2**20)
+       fpga.write_int('gain_re_bin', (2**20)//(Nfft//512))
     time.sleep(1)
     print('Done')
 
