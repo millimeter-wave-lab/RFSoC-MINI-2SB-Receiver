@@ -61,33 +61,69 @@ def sweep_SRR(fpga, instrument, Nfft, n_bits, bin_step, n, output_file='srr_data
 
     try:
         n_outputs = 8
-        if_freqs = np.linspace(0, fs/2, Nfft, endpoint=False)
-        faxis_LSB = LO - (n-1) * fs/2 - if_freqs
-        faxis_USB = LO + (n-1) * fs/2 + if_freqs
         
-        for i in range(0, Nfft, bin_step):
-            instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
-            time.sleep(0.5)
-            
-            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+        if n == 1:
+            if_freqs = np.linspace(0, fs/2, Nfft, endpoint=False)
+            faxis_LSB = LO - if_freqs
+            faxis_USB = LO + if_freqs
 
-            diff = 10 * (np.log10(fft.fftshift(spectrum2 + 1)[-i-1] / fft.fftshift(spectrum1 + 1)[-i-1]))
-            
-            print(faxis_LSB[-i-1] / 1000, diff)
-            freq_data.append(faxis_LSB[-i-1] / 1000)
-            SRR.append(diff)
+            for i in range(0, Nfft, bin_step):
+                instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
+                time.sleep(0.5)
+                
+                spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
 
-        for i in range(0, Nfft, bin_step):
-            instrument.write(f'FREQ {faxis_USB[i]}e6')
-            time.sleep(0.5)
-            
-            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+                diff = 10 * (np.log10(fft.fftshift(spectrum2 + 1)[-i-1] / fft.fftshift(spectrum1 + 1)[-i-1]))
+                
+                print(faxis_LSB[-i-1] / 1000, diff)
+                freq_data.append(faxis_LSB[-i-1] / 1000)
+                SRR.append(diff)
 
-            diff = 10 * (np.log10(fft.fftshift(spectrum1 + 1)[i] / fft.fftshift(spectrum2 + 1)[i]))
+            for i in range(0, Nfft, bin_step):
+                instrument.write(f'FREQ {faxis_USB[i]}e6')
+                time.sleep(0.5)
+                
+                spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+
+                diff = 10 * (np.log10(fft.fftshift(spectrum1 + 1)[i] / fft.fftshift(spectrum2 + 1)[i]))
+                
+                print(faxis_USB[i] / 1000, diff)
+                freq_data.append(faxis_USB[i] / 1000)
+                SRR.append(diff)
+
+        else:
             
-            print(faxis_USB[i] / 1000, diff)
-            freq_data.append(faxis_USB[i] / 1000)
-            SRR.append(diff)
+            """First frequency on 'if_freqs' discarded (983.04 MHz).
+            Now starts on 983.07 MHz and ends on 1966.05 MHz.
+            Channels read by RFSoC adjusted to match with array dimensions 
+            and frequencies with 'if_freqs'."""
+            if_freqs = np.linspace(fs/2, fs, Nfft, endpoint=False)[1:]
+            faxis_LSB = LO - if_freqs
+            faxis_USB = LO + if_freqs
+
+            for i in range(0, Nfft-1, bin_step):
+                instrument.write(f'FREQ {faxis_LSB[-i-1]}e6')
+                time.sleep(0.5)
+                
+                spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+
+                diff = 10 * (np.log10(fft.fftshift(spectrum2 + 1)[-i-2] / fft.fftshift(spectrum1 + 1)[-i-2]))
+                
+                print(faxis_LSB[-i-1] / 1000, diff)
+                freq_data.append(faxis_LSB[-i-1] / 1000)
+                SRR.append(diff)
+
+            for i in range(0, Nfft-1, bin_step):
+                instrument.write(f'FREQ {faxis_USB[i]}e6')
+                time.sleep(0.5)
+                
+                spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+
+                diff = 10 * (np.log10(fft.fftshift(spectrum1 + 1)[i] / fft.fftshift(spectrum2 + 1)[i]))
+                
+                print(faxis_USB[i] / 1000, diff)
+                freq_data.append(faxis_USB[i] / 1000)
+                SRR.append(diff)
 
     except KeyboardInterrupt:
         print("User interruption. Plotting data...")
@@ -98,12 +134,12 @@ def sweep_SRR(fpga, instrument, Nfft, n_bits, bin_step, n, output_file='srr_data
         csv_writer.writerow(["Frequency (MHz)", "SRR (dB)"])
         csv_writer.writerows(zip(freq_data, SRR))
 
-    faxis = np.concatenate((faxis_LSB[::-1][::bin_step], faxis_USB[::bin_step]))[:len(SRR)]
+    if_freqs = np.concatenate((faxis_LSB[::-1][::bin_step], faxis_USB[::bin_step]))[:len(SRR)]
     
     fig = plt.figure()
     ax = fig.add_subplot(111)
     ax.grid()
-    ax.plot(faxis, SRR, '-', color="black")
+    ax.plot(if_freqs, SRR, '-', color="black")
     
     plt.xlabel('RF Frequency (MHz)')
     plt.ylabel('SRR (dB)')
@@ -115,11 +151,11 @@ def sweep_SRR(fpga, instrument, Nfft, n_bits, bin_step, n, output_file='srr_data
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Sweeps frequencies and plots SRR with given options',
-        usage='python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width> [options]'
+        usage='python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width>'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
+    parser.add_argument('nfft', type=int, help='Nfft Size')
     parser.add_argument('rf_instrument', type=str, help='RF instrument IP address')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
     parser.add_argument('spectrum_part', type=int, help='For the 65536-size FFT models, select either the first or second half of the bandwidth')
@@ -154,7 +190,7 @@ if __name__ == "__main__":
     fpga.adcs['rfdc'].progpll('lmx', c[0])
     time.sleep(1)
     print('Done')
-    time.sleep(25)
+    # time.sleep(25)
 
     print('Configuring accumulation period...')
     fpga.write_int('acc_len', args.acc_len)
@@ -164,7 +200,7 @@ if __name__ == "__main__":
     
     if n_bits == 32:
        fpga.write_int('gain', 2**20)
-       fpga.write_int('gain_re_bin', 2**20)
+       fpga.write_int('gain_re_bin', (2**20)//(Nfft//512))
     time.sleep(1)
     print('Done')
 
@@ -184,31 +220,3 @@ if __name__ == "__main__":
         sweep_SRR(fpga, instrument, Nfft, n_bits, 128, part)
     except KeyboardInterrupt:
         sys.exit()
-
-    # print('Connecting to instruments...')
-    # rm = pyvisa.ResourceManager('@py')
-    # instrument = rm.open_resource(f'TCPIP0::{rf_instrument}::INSTR')
-    # time.sleep(1)
-    # print('Done')
-    
-    # if n_bits == 32:
-    
-    #     gain = [10]
-    #     acc_len = [10]
-        
-    #     for i in range(len(gain)):
-    #         fpga.write_int('gain', 2**gain[i])
-    #         fpga.write_int('acc_len', 2**acc_len[i])
-    #         time.sleep(1)
-    #         print('Done')
-
-    #         print('Resetting counters...')
-    #         fpga.write_int('cnt_rst', 1)
-    #         fpga.write_int('cnt_rst', 0)
-    #         time.sleep(1)
-    #         print('Done')
-
-    #         try:
-    #             sweep_SRR(fpga, instrument, Nfft, n_bits, 16, f'srr_delays_8192ch_32bits_g2_{gain[i]}_len2_{acc_len[i]}.csv')
-    #         except KeyboardInterrupt:
-    #             sys.exit()

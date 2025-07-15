@@ -6,7 +6,7 @@ import matplotlib.animation as anim
 import casperfpga
 import argparse
 
-def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
+def get_vacc_data_power(fpga, n_outputs, nfft):
   """Get the raw data from fpga digital sideband separation spectrometer"""
 
   bins_out = nfft//n_outputs    # Number of bins for each output
@@ -41,7 +41,7 @@ def get_vacc_data_power(fpga, n_outputs, nfft, n_bits):
 
   return interleave_i, interleave_q
 
-def plot_spectrum(fpga, Nfft, n_bits, n):
+def plot_spectrum(fpga, Nfft, n):
     
     fig, (ax1, ax2) = plt.subplots(1, 2) 
     ax1.grid()
@@ -52,15 +52,19 @@ def plot_spectrum(fpga, Nfft, n_bits, n):
     fs = 3932.16 / 2
     n_outputs = 8
        
-    spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+    spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft)
 
     if n == 1:
-       faxis = np.linspace(0,fs/2, Nfft ,endpoint=False)
+       faxis = np.linspace(0, fs/2, Nfft, endpoint=False)
        LSB = 10 * np.log10(fft.fftshift(spectrum2+1))
        USB = 10 * np.log10(fft.fftshift(spectrum1+1))
 
     else:
-       faxis = np.linspace(fs/2,fs, Nfft ,endpoint=False)[1:]
+       """First frequency on 'faxis' discarded (983.04 MHz).
+       Now starts on 983.07 MHz and ends on 1966.05 MHz.
+       Last channel read by RFSoC discarded to match array dimensions 
+       and frequencies with 'faxis'."""
+       faxis = np.linspace(fs/2, fs, Nfft, endpoint=False)[1:]
        LSB = 10 * np.log10(fft.fftshift(spectrum2+1))[:-1]
        USB = 10 * np.log10(fft.fftshift(spectrum2+1))[:-1]
 
@@ -86,7 +90,7 @@ def plot_spectrum(fpga, Nfft, n_bits, n):
        
         def update(frame, *fargs):
 
-            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft)
             line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1)))
             line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1)))
 
@@ -94,7 +98,7 @@ def plot_spectrum(fpga, Nfft, n_bits, n):
        
         def update(frame, *fargs):
 
-            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft, n_bits=n_bits)
+            spectrum1, spectrum2 = get_vacc_data_power(fpga, n_outputs=n_outputs, nfft=Nfft)
             line1.set_ydata(10 * np.log10(fft.fftshift(spectrum2+1))[:-1])
             line2.set_ydata(10 * np.log10(fft.fftshift(spectrum1+1))[:-1])
     
@@ -105,16 +109,16 @@ def plot_spectrum(fpga, Nfft, n_bits, n):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Shows real time sidebands spectrums and SRR with given options',
-        usage='python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> <part>[options]'
+        usage='python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> <spectrum_part>'
     )
 
     parser.add_argument('hostname', type=str, help='Hostname or IP for the Casper platform')
-    parser.add_argument('nfft', type=int, help='Operation mode: Nfft Size')
+    parser.add_argument('nfft', type=int, help='Nfft Size')
     parser.add_argument('data_output_width', type=int, help='BRAMs data output width')
     parser.add_argument('spectrum_part', type=int, help='For the 65536-size FFT models, select either the first or second half of the bandwidth')
     
     parser.add_argument('-l', '--acc_len', type=int, default=2**13,
-                        help='Set the number of vectors to accumulate between dumps. Default is 2*(2^28)/2048')
+                        help='Set the number of vectors to accumulate between dumps.')
     
     args = parser.parse_args()
 
@@ -149,7 +153,7 @@ if __name__ == "__main__":
 
     if n_bits == 32:
        fpga.write_int('gain', 2**20)
-       fpga.write_int('gain_re_bin', 2**20)
+       fpga.write_int('gain_re_bin', (2**20)//(Nfft//512))
     time.sleep(1)
     print('Done')
 
@@ -160,6 +164,6 @@ if __name__ == "__main__":
     print('Done')
 
     try:
-        plot_spectrum(fpga, Nfft, n_bits, part)
+        plot_spectrum(fpga, Nfft, part)
     except KeyboardInterrupt:
         sys.exit()
