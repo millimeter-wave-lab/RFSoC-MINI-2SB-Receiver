@@ -18,7 +18,7 @@ Due to the 32-bit limitation of the radiotelescope microcontroller (PIC32), this
 - 65536 channels (implemented in two separate models due to resource limitations.)
 
 Each model includes:
-- 32-bit BRAM blocks for data acquisition, named `synth0_i` and `synth1_i` for the high-resolution spectrometer, and `re_bin_synth0_i` and `re_bin_synth1_i` for the 512-channel spectrometer in parallel.
+- 32-bit BRAM blocks for data acquisition, named `synth0_i` and `synth1_i` for the high-resolution spectrometer, and `re_bin_synth0_i` and `re_bin_synth1_i` for the parallel 512-channel spectrometer.
 - Reset accumulation control.
 - Bits re-quantization blocks.
 
@@ -26,22 +26,22 @@ Each model includes:
 
 ## Python Scripts
 
-This repository includes Python scripts for initializing the RFSoC, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra, SRR, etc.). 
+This repository includes Python scripts for initializing the RFSoC, configuring registers, capturing data, and performing post-processing (e.g., plotting spectra, calculate SRR, etc.). 
 
 | File | Description |
 |------|-------------|
 | `anim_dss_spectrum_1966mhz.py` | Plots the spectrum in real time for a 1.96608 GHz bandwidth. <br>**Usage:** `python anim_dss_spectrum_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width>` |
 | `anim_dss_spectrum_65536ch_1966mhz.py` |Plots the spectrum in real time for 65536-channel models, selects first or second half of the spectrum via `part` argument. <br>**Usage:** `python anim_dss_spectrum_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <Data Output Width> <part>` (where `part` = 1 or 2) |
 | `sweep_srr_plot_1966mhz.py` | Performs a sweep across the full bandwidth and computes the Sideband Rejection Ratio (SRR). <br>**Usage:** `python sweep_srr_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width>` |
-| `sweep_srr_plot_65536ch_1966mhz.py` | Performs a sweep across the full bandwidth and computes the Sideband Rejection Ratio (SRR) for 65536-channel models. Selects first or second half of the spectrum via `part` argument. <br>**Usage:** `python sweep_srr_plot_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width> <part>` (where `part` = 1 or 2) |
+| `sweep_srr_plot_65536ch_1966mhz.py` | Sweeps a portion of the bandwidth and calculates the Sideband Rejection Ratio (SRR) for 65536-channel models. The script selects either the first or second half of the spectrum using the `part` argument. <br>**Usage:** `python sweep_srr_plot_65536ch_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF Instrument IP address> <Data Output Width> <part>` (where `part` = 1 or 2) |
 | `sweep_ph_plot_1966mhz.py` | Sweeps across the full bandwidth and calculates phase difference between I and Q outputs. Only works for 64-bits models. <br>**Usage:** `python sweep_ph_plot_1966mhz.py <HOSTNAME_or_IP> <Nfft Size> <RF instrument IP address> <Data Output Width>` |
 | `plot_srr_ph_diff.py` | Plots SRR or phase difference from a CSV file. <br>**Usage:** `python plot_srr_ph_diff.py` |
-| `plot_srr_65536ch.py` | Plots SRR for high resolution spectrometer (65536-channels models) reading two CSV files. <br>**Usage:** `python plot_srr_65536ch.py` |
+| `plot_srr_65536ch.py` | Plots SRR for 65536-channels spectrometer models. Reads two CSV files corresponding to first and second part of the bandwidth. <br>**Usage:** `python plot_srr_65536ch.py` |
 | `test_spec_cnt.py` | Tests the accumulation counter. <br>**Usage:** `python test_spec_cnt.py` |
 
 ## Mini Implementation
 
-This section includes Python and C++ scripts used for communication testing and deployment of the RFSoC-based spectrometer system at the Southern Millimeter Wave Telescope (Mini). Some scripts run on the RFSoC board, while others run on the control computer or data server.
+This section includes Python and C++ scripts used for communication testing and deployment of the RFSoC-based spectrometer system at the Southern Millimeter Wave Telescope (Mini).
 
 ### Python Scripts
 
@@ -50,18 +50,18 @@ This section includes Python and C++ scripts used for communication testing and 
 | `rfsoc4x2_spec_ini.py` | Initializes and programs the RFSoC with the selected spectrometer model. <br>**Usage:** `python rfsoc4x2_spec_ini.py` |
 | `cpp_interface.py` | Python interface that repeatedly requests spectra via the C++ client and measures the response time. Results are logged to a `.csv` file. <br>**Usage:** `python cpp_interface.py` |
 | `plot.py` | Plots delays recorded during spectrum acquisition requests. <br>**Usage:** `python plot.py` |
-| `rfsoc_mini_client.py` | Python client script used in the Mini radiotelescope Data Server. Requests spectra and transmits them to the PIC32 microcontroller. Does not log timings. <br>**Usage:** `python rfsoc_mini_client.py` |
+| `rfsoc_mini_client.py` | Python client script used in the Mini radiotelescope Data Server. Requests spectra and transmits them to the PIC32 microcontroller. <br>**Usage:** `python rfsoc_mini_client.py` |
 
 ### C++ Scripts
 
 | File | Description |
 |------|-------------|
-| `rfsoc_server.cpp` | C++ server that runs on the RFSoC. Waits for incoming client connections and serves spectrum data. |
+| `rfsoc_server.cpp` | C++ server that runs on the RFSoC. Waits for incoming client connections and sends spectrum data. |
 | `cpp_socket.cpp` | C++ client that connects to the RFSoC server and requests spectra. It is compiled as a Python extension using pybind11, allowing integration with Python scripts. |
 
 ### Execution Flow
 
-Below is the standard sequence to run the RFSoC spectrometer system from both ends:
+Below is the standard sequence to run the RFSoC spectrometer system:
 
 1. **Program the RFSoC with the spectrometer bitstream**  
    Load the selected spectrometer model onto the RFSoC using the initialization script:
