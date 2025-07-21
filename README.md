@@ -18,7 +18,7 @@ Due to the 32-bit limitation of the radiotelescope microcontroller (PIC32), this
 - 65536 channels (implemented in two separate models due to resource limitations.)
 
 Each model includes:
-- 32-bits BRAM blocks for data acquisition.
+- 32-bit BRAM blocks for data acquisition, named `synth0_i` and `synth1_i` for the high-resolution spectrometer, and `re_bin_synth0_i` and `re_bin_synth1_i` for the 512-channel spectrometer in parallel.
 - Reset accumulation control.
 - Bits re-quantization blocks.
 
