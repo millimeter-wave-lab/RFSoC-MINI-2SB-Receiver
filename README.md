@@ -75,11 +75,13 @@ Below is the standard sequence to run the RFSoC spectrometer system:
    ```bash
    ssh casper@<rfsoc-ip>
    ```
-   Then, compile and run the server:
-   ```bash
-   g++ rfsoc_server.cpp -o rfsoc_server
+   Then, compile and run the server. The following example uses the 8192-channel server for the ideal model:
 
-   sudo ./rfsoc_server
+
+   ```bash
+   g++ rfsoc_8192ch_ideal_server.cpp -o rfsoc_8192ch_ideal_server
+
+   sudo ./rfsoc_8192ch_ideal_server
 3. **Compile the C++ Socket Client**  
    On the control computer, compile:
 
