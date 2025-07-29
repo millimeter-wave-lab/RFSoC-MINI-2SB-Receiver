@@ -56,8 +56,9 @@ This section includes Python and C++ scripts used for communication testing and 
 
 | File | Description |
 |------|-------------|
-| `rfsoc_server.cpp` | C++ server that runs on the RFSoC. Waits for incoming client connections and sends spectrum data. |
-| `cpp_socket.cpp` | C++ client that connects to the RFSoC server and requests spectra. It is compiled as a Python extension using pybind11, allowing integration with Python scripts. |
+| `rfsoc_<n_ch>ch_<mode>_server.cpp` | C++ server that runs on the RFSoC. It waits for incoming client connections and sends spectrum data. Located in the `rfsoc_server` folder. <br><br>**Parameters:**<br>- `n_ch`: number of channels, valid values are `8192`, `16384`, or `32768`.<br>- `mode`: operation mode, either `cal` (calibrated) or `ideal` (ideal model).<br><br>**Note:** For 65536-channel models, use the `32768`-channel server. The bitstream `dss_ideal1_65536ch_32bits_reset_1966mhz_cx.fpg` observes the **first** 32768 channels of the bandwidth, while `dss_ideal2_65536ch_32bits_reset_1966mhz_cx.fpg` observes the **second** 32768 channels. |
+| `cpp_socket.cpp` | C++ client that connects to the RFSoC server and requests spectrum data. It is compiled as a Python extension using `pybind11`, enabling integration with Python scripts. |
+
 
 ### Execution Flow
 
