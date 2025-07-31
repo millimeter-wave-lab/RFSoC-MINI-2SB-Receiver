@@ -89,7 +89,7 @@ def request_acc_cnt(client):
 	return acc_bytes
 
 
-def request_512_channels_1band(client, first_chan: int, Nfft: int, N_Channels: int, mode: str):
+def request_channels(client, first_chan: int, Nfft: int, N_Channels: int, mode: str):
     
 	"""Get the raw data in bytes from fpga digital spectrometer from requested channels using a client interface.
 
@@ -108,10 +108,17 @@ def request_512_channels_1band(client, first_chan: int, Nfft: int, N_Channels: i
 
 	if mode == 'cal':
 		first_chan = 0
+		# EN CASO DE QUERER CALIBRAR CON UNA SECCIÓN DEL ESPECTRO COMPLETO: Cambiar first_chan al que nos interesa 
+		
 		Nfft = 512
+		# Cambiar Nfft al de interés (igual que se ingresa al inicio de request_channel, p.ej 8192)
+		
 		N_Channels = Nfft
+		# Cambiar N_Channels a 512 para que le llegue bien a la PIC
+
 		bins_out = N_Channels // 8
 		bram_name = "re_bin_synth"
+		# bram_name Cambiar a "synth" para usar el espectrómetro original
 
 	data_width = 4    # Data output width of 4 bytes (32 bits)
 	add_width = bins_out    # Number of "Data Width" words of the implemented BRAM
@@ -171,10 +178,10 @@ def request_512_channels_1band(client, first_chan: int, Nfft: int, N_Channels: i
 				time.sleep(0.0005)
 	
 	
-	interleave_i = raw1.T.ravel().astype(np.uint32) 
-	interleave_q = raw2.T.ravel().astype(np.uint32)
+	interleave_USB = raw1.T.ravel().astype(np.uint32) 
+	interleave_LSB = raw2.T.ravel().astype(np.uint32)
 
-	return interleave_i
+	return [interleave_USB, interleave_LSB]
 
 # def request_512_channels_and_save(fpga):
 # 	"""Get the raw data in bytes from fpga digital spectrometer"""
@@ -262,7 +269,7 @@ def receive_from_PIC(PIC_socket):
 
 
 
-def process_RFSoC_request(fpga, client, Nfft):
+def process_RFSoC_request(fpga, client, Nfft, N_CHANNELS):
 	"""
 	Receives the data from the RFSoC socket
 	RFSoC_socket:	Rfsoc socket
@@ -282,7 +289,10 @@ def process_RFSoC_request(fpga, client, Nfft):
 				#spectrum_buffer_512 = request_512_channels_and_save(fpga)
 				#t1 = time.time()
 				#spectrum_buffer_512 = request_512_channels(fpga)
-				spectrum_buffer_512 = request_512_channels_1band(client, 0, Nfft, 16384, mode)[:512]
+
+				USB, LSB = request_channels(client, 0, Nfft, N_CHANNELS, mode)
+				
+				spectrum_buffer_512 = USB[:512]
 
 				"""request_512_channels_1band(client, first_chan:int, Nfft:int, N_Channels: int, mode:str)"""
 				
@@ -409,8 +419,8 @@ HOST_RFSOC = "192.168.7.187"
 client = cpp_socket.CPPSocket(HOST_RFSOC, 12345)
 
 # FPGA Model Parameters
-
-NFFT = 8192		# FFT Size
+NFFT = 8192		# FFT Size (2**14 = 16384)
+N_CHANNELS = 8192	#Number of spectral channels to read (2**14 = 16384)
 
 if NFFT == 8192:
 	ACC_LEN_SPLOBS = 2**12
@@ -443,9 +453,6 @@ bitstream = f'/home/mini-dataserver/miniQuimal/src/dataserver_as_interface/model
 if NFFT == 65536:
 	bitstream = f'/home/mini-dataserver/miniQuimal/src/dataserver_as_interface/models/dss_ideal1_{NFFT}ch_32bits_reset_1966mhz_cx.fpg'
 	NFFT = NFFT//2
-
-	print(f'NFFT 2 = {NFFT}')
-	print(f'Gain 2 = {GAIN}')
 
 
 print(f'Connecting to {hostname}...')
@@ -493,7 +500,7 @@ print(f"Connected to {addr}")
 
 
 recv_from_PIC_thread = threading.Thread(target=receive_from_PIC,args=([conn]))
-process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request, args=([fpga, client, NFFT]))
+process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request, args=([fpga, client, NFFT, N_CHANNELS]))
 #process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request)
 sending_data_thread = threading.Thread(target=sending_data, args=([conn]))
 saving_spectra_thread = threading.Thread(target=save_spectra_to_hdd)
