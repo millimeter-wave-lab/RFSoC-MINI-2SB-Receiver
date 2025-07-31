@@ -24,14 +24,6 @@ import cpp_socket
 HOST_PIC = "192.168.7.119" # IP
 PORT_PIC = 1234 # Port to listen on
 
-HOST_RFSOC = "192.168.7.187"
-
-# FPGA Model Parameters
-ACC_LEN_SPLOBS = 2**12
-ACC_LEN_CAL = 2**12
-GAIN = 2**12
-
-
 # Define the numbers of telescope states per package, and the packet length
 statesPerPackage = 20
 packetLength = 70
@@ -83,7 +75,8 @@ def program_fpga(fpga):
 	a = 0
 	# Program fpga and stuff
 def request_acc_cnt(client):
-	acc_recv = client.send_request('acc_cnt 0 4')
+	acc_recv = client.send_request('acc_cnt 0 4', 4)
+	# acc_recv = client.send_request('acc_cnt 0 4')
 	#print(f"acc_recv: {acc_recv}")
 	acc_int = struct.unpack('<1L', acc_recv)[0]
 	#print(f"acc_int: {acc_int}")
@@ -96,110 +89,122 @@ def request_acc_cnt(client):
 	return acc_bytes
 
 
+def request_512_channels_1band(client, first_chan: int, Nfft: int, N_Channels: int, mode: str):
+    
+	"""Get the raw data in bytes from fpga digital spectrometer from requested channels using a client interface.
 
-def request_512_channels(fpga):
-	"""Get the raw data in bytes from fpga digital spectrometer"""
-	nfft = 8192
+    :param client: object used to communicate with RFSoC.
+    :param first_chan: index of the first FFT channel to request (starting from 0).
+    :param Nfft: total number of FFT bins.
+    :param N_Channels: number of frequency channels to receive.
+    :param mode: observation mode, i.e. 'cal' or 'splobs'.
+    
+	:return: byte array containing the requested data.
+    """
 	n_outputs = 8
-	bins_out = nfft//n_outputs    # Number of bins for each output
-	# bins_out = 64 
-	data_width = 4    # Data output width of 4 bytes (32 bits)
-
-	add_width = bins_out    # Number of "Data Width" words of the implemented BRAM
-                          # Must be set to store at least the number of output bins of each bram
-
-	raw1 = np.zeros((n_outputs, bins_out))
-	for i in range(n_outputs):    # Extract data from BRAMs blocks for each output
-		raw1[i,:] = struct.unpack(f'>{bins_out}L',
-		fpga.read(f'synth0_{i}', add_width * data_width, 0))
-		
-		#synth0 reads Q and synth1 reads I, corresponding to USB and LSB respectively
-
-	interleave_i = raw1.T.ravel().astype(np.float64) 
-
-	interleave_shift_i = fft.fftshift(interleave_i)
-
-	N_CHANNELS = 512 # Number of channels to read
-	FIRST_CHANNEL = 768 # the first channel to read, copied from Roach communication
-	interleave_shift_i_int = interleave_shift_i[FIRST_CHANNEL:FIRST_CHANNEL+N_CHANNELS].astype(np.uint32)
-
-	# Pack the first 512 values
 	
-  
-	return interleave_shift_i_int
+	bins_out = N_Channels // 8
+	bram_name = "synth"
 
+	if mode == 'cal':
+		first_chan = 0
+		Nfft = 512
+		N_Channels = Nfft
+		bins_out = N_Channels // 8
+		bram_name = "re_bin_synth"
 
-
-def request_512_channels_1band(client, first_chan:int):
-	"""Get the raw data in bytes from fpga digital spectrometer"""
-	nfft = 8192
-	n_outputs = 8
-	# bins_out = nfft//n_outputs    # Number of bins for each output
-
-	N_CHANNELS = 512
-	
-	bins_out = N_CHANNELS // 8
 	data_width = 4    # Data output width of 4 bytes (32 bits)
-
 	add_width = bins_out    # Number of "Data Width" words of the implemented BRAM
-                          # Must be set to store at least the number of output bins of each bram
+							# Must be set to store at least the number of output bins of each bram
 
+	# print("")
 	raw1 = np.zeros((n_outputs, bins_out))
 	raw2 = np.zeros((n_outputs, bins_out))
 
-	
-	for i in range(n_outputs):    # Extract data from BRAMs blocks for each output
-		data_in_bytes_USB = client.send_request(f"synth0_{i} {1024*4//2+(first_chan)//8*4} {add_width * data_width}")
-		# print(len(data_in_bytes_USB))
-		raw1[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_USB)
-		time.sleep(0.0005)
+	# Case 1: first_chan//8 <= (Nfft//8)//2
+	if first_chan//8 <= (Nfft//8)//2:
 		
-		data_in_bytes_LSB = client.send_request(f"synth1_{i} {1024*4//2+(first_chan)//8*4} {add_width * data_width}")
-		# print(len(data_in_bytes_LSB))
-		raw2[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_LSB)
-		time.sleep(0.0005)
+		# Case 1.1: (Nfft//8)//2 + first_chan//8 + N_Channels//8 <= Nfft//8
+		if (Nfft//8)//2 + first_chan//8 + N_Channels//8 <= Nfft//8:
+			for i in range(n_outputs):	# Extract data from BRAMs blocks for each output
+				
+				data_in_bytes_USB = client.send_request(f"{bram_name}0_{i} {((Nfft//8)//2 + first_chan//8) * data_width} {add_width * data_width}", add_width * data_width)
+				# print(f"Requested bytes {add_width * data_width}")
+				# print(f"USB {len(data_in_bytes_USB)}")
+				
+				raw1[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_USB)
+				time.sleep(0.0005)
+				
+				data_in_bytes_LSB = client.send_request(f"{bram_name}1_{i} {((Nfft//8)//2 + first_chan//8) * data_width} {add_width * data_width}", add_width * data_width)
+				raw2[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_LSB)
+				time.sleep(0.0005)
 
-		#fpga.read(f'synth1_{i}', add_width * data_width, 1024*4//2+768//8*4))
+		else:
+			first_half = (Nfft//8)//2 - first_chan//8
+			second_half = first_chan//8 + N_Channels//8 - (Nfft//8)//2
+			
+			for i in range(n_outputs):
+
+				data_in_bytes_USB_1 = client.send_request(f"{bram_name}0_{i} {((Nfft//8)//2 + first_chan//8) * data_width} {first_half * data_width}", first_half * data_width)
+				data_in_bytes_USB_2 = client.send_request(f"{bram_name}0_{i} {0} {second_half * data_width}", second_half * data_width)
+				# print(f"Requested First bytes {first_half * data_width}")
+				# print(f"Requested Second bytes {second_half * data_width}")
+				# print(f"USB 1 {len(data_in_bytes_USB_1)}")
+				# print(f"USB 2 {len(data_in_bytes_USB_2)}")
+				raw1[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_USB_1 + data_in_bytes_USB_2)
+				time.sleep(0.0005)
+
+				data_in_bytes_LSB_1 = client.send_request(f"{bram_name}1_{i} {((Nfft//8)//2 + first_chan//8) * data_width} {first_half * data_width}", first_half * data_width)
+				data_in_bytes_LSB_2 = client.send_request(f"{bram_name}1_{i} {0} {second_half * data_width}", second_half * data_width)
+				raw2[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_LSB_1 + data_in_bytes_LSB_2)
+				time.sleep(0.0005)
+
+	# Case 2: first_chan//8 > (Nfft//8)//2
+	else:
+			for i in range(n_outputs):	# Extract data from BRAMs blocks for each output
+				data_in_bytes_USB = client.send_request(f"{bram_name}0_{i} {(first_chan//8 - (Nfft//8)//2) * data_width} {add_width * data_width}", add_width * data_width)
+				raw1[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_USB)
+				time.sleep(0.0005)
+				
+				data_in_bytes_LSB = client.send_request(f"{bram_name}1_{i} {(first_chan//8 - (Nfft//8)//2) * data_width} {add_width * data_width}", add_width * data_width)
+				raw2[i,:] = struct.unpack(f'<{bins_out}L', data_in_bytes_LSB)
+				time.sleep(0.0005)
+	
 	
 	interleave_i = raw1.T.ravel().astype(np.uint32) 
 	interleave_q = raw2.T.ravel().astype(np.uint32)
 
-	# interleave_shift_i = fft.fftshift(interleave_i)
-	# interleave_shift_q = fft.fftshift(interleave_q)
-
-	# N_CHANNELS = 512 # Number of channels to read
-	# FIRST_CHANNEL = 768 # the first channel to read, copied from Roach communication
-	# interleave_shift_i_int = interleave_shift_i[FIRST_CHANNEL:FIRST_CHANNEL+N_CHANNELS].astype(np.uint32)
-	# time.sleep(0.010)
-	# Pack the first 512 values
-	
-	# print(len(interleave_i))
 	return interleave_i
 
-def request_512_channels_and_save(fpga):
-	"""Get the raw data in bytes from fpga digital spectrometer"""
-	n_outputs = 8
-	nfft = 8192
-	N_CHANNELS = 512 # Number of channels to read
-	FIRST_CHANNEL = 768 # the first channel to read, copied from Roach communication
-	#q, i = get_vacc_data_power(fpga, n_outputs, nfft)
+# def request_512_channels_and_save(fpga):
+# 	"""Get the raw data in bytes from fpga digital spectrometer"""
+# 	n_outputs = 8
+# 	nfft = 8192
+# 	N_CHANNELS = 512 # Number of channels to read
+# 	FIRST_CHANNEL = 768 # the first channel to read, copied from Roach communication
+# 	#q, i = get_vacc_data_power(fpga, n_outputs, nfft)
 
-	spectra_write_to_disk_queue.put([q, i])
+# 	spectra_write_to_disk_queue.put([q, i])
 
-	spectrum_for_pic = q[FIRST_CHANNEL:FIRST_CHANNEL+N_CHANNELS]
-	return spectrum_for_pic
+# 	spectrum_for_pic = q[FIRST_CHANNEL:FIRST_CHANNEL+N_CHANNELS]
+# 	return spectrum_for_pic
 
-	# Pack the first 512 values
+# 	# Pack the first 512 values
 
 def set_cal_mode(fpga):
 	#fpga.write_int('acc_len', ACC_LEN_CAL)
 	acc_len = fpga.read_uint('acc_len')
 	print("FPGA acc len set to " + str(acc_len))
+	print("CAL Mode")
+	return "cal"
 
 def set_splobs_mode(fpga):
 	#fpga.write_int('acc_len', ACC_LEN_SPLOBS)
 	acc_len = fpga.read_uint('acc_len')
 	print("FPGA acc len set to " + str(acc_len))
+	print("SPLOBS Mode")
+	# return "cal"
+	return "splobs"
 
 def receive_from_PIC(PIC_socket):
 	"""
@@ -257,10 +262,10 @@ def receive_from_PIC(PIC_socket):
 
 
 
-def process_RFSoC_request(fpga, client):
+def process_RFSoC_request(fpga, client, Nfft):
 	"""
-	Receives the data from the ROACH socket
-	ROACH_socket:	Roach socket
+	Receives the data from the RFSoC socket
+	RFSoC_socket:	Rfsoc socket
 	"""
 	# Spectrum 512 ch buffer
 	spectrum_buffer_512 = np.zeros(512).astype(np.uint32)
@@ -277,7 +282,10 @@ def process_RFSoC_request(fpga, client):
 				#spectrum_buffer_512 = request_512_channels_and_save(fpga)
 				#t1 = time.time()
 				#spectrum_buffer_512 = request_512_channels(fpga)
-				spectrum_buffer_512 = request_512_channels_1band(client,0)[:512]
+				spectrum_buffer_512 = request_512_channels_1band(client, 0, Nfft, 16384, mode)[:512]
+
+				"""request_512_channels_1band(client, first_chan:int, Nfft:int, N_Channels: int, mode:str)"""
+				
 				#print(time.time()-t1)
 				last_acc = cnt_in_bytes
 			send_to_PIC_queue.put(response)
@@ -310,12 +318,12 @@ def process_RFSoC_request(fpga, client):
 			#send_to_PIC_queue.put(bytes_result)
 
 		elif request[:25] == b"?wordwrite integ_mode 0 0":
-			set_cal_mode(fpga)
+			mode = set_cal_mode(fpga)
 			response = b"!wordwrite ok\n"
 			send_to_PIC_queue.put(response)
 
 		elif request[:25] == b"?wordwrite integ_mode 0 1":
-			set_splobs_mode(fpga)
+			mode = set_splobs_mode(fpga)
 			response = b"!wordwrite ok\n"
 			send_to_PIC_queue.put(response)
 
@@ -385,10 +393,10 @@ def sending_data(PIC_socket:socket):
 				#print(now.time())
 				#sendingToPIC.clear()
 
-
 """
 MAIN PROGRAM
 """ 
+
 """
 ROACH_s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 print(f"Waiting for connection to {HOST_RF} Port {PORT_ROACH}")
@@ -397,13 +405,48 @@ print(f"Connected to {HOST_ROACH}")
 
 CONNECT TO RFSOC HERE!!!!!!!
 """
+HOST_RFSOC = "192.168.7.187"
 client = cpp_socket.CPPSocket(HOST_RFSOC, 12345)
 
+# FPGA Model Parameters
+
+NFFT = 8192		# FFT Size
+
+if NFFT == 8192:
+	ACC_LEN_SPLOBS = 2**12
+	ACC_LEN_CAL = 2**12
+
+elif NFFT == 16384:
+	ACC_LEN_SPLOBS = 2**11
+	ACC_LEN_CAL = 2**11
+
+elif NFFT == 32768:
+	ACC_LEN_SPLOBS = 2**10
+	ACC_LEN_CAL = 2**10
+
+elif NFFT == 65536:
+	ACC_LEN_SPLOBS = 2**9
+	ACC_LEN_CAL = 2**9
+
+GAIN_RE_BIN = 2**11
+GAIN = GAIN_RE_BIN * NFFT // 512
+
+print(f'NFFT 1 = {NFFT}')
+print(f'Gain 1 = {GAIN}')
+
 hostname = HOST_RFSOC	# IP address RFSoC
-Nfft = 8192		# FFT Size
 
 # FPGA .fpg file and .dtbo must be in the same folder
-bitstream = '/home/mini-dataserver/miniQuimal/src/dataserver_as_interface/models/dss_ideal_8192ch_32bits_reset_1966mhz_cx_2025-04-07_1901.fpg'
+
+bitstream = f'/home/mini-dataserver/miniQuimal/src/dataserver_as_interface/models/dss_ideal_{NFFT}ch_32bits_reset_1966mhz_cx.fpg'
+
+if NFFT == 65536:
+	bitstream = f'/home/mini-dataserver/miniQuimal/src/dataserver_as_interface/models/dss_ideal1_{NFFT}ch_32bits_reset_1966mhz_cx.fpg'
+	NFFT = NFFT//2
+
+	print(f'NFFT 2 = {NFFT}')
+	print(f'Gain 2 = {GAIN}')
+
 
 print(f'Connecting to {hostname}...')
 fpga = casperfpga.CasperFpga(hostname)
@@ -411,7 +454,7 @@ time.sleep(0.2)
 
 print(f'Programming FPGA with {bitstream}...')
 fpga.upload_to_ram_and_program(bitstream)
-time.sleep(5)
+time.sleep(1)
 print('Done')
 
 print('Initializing RFDC block...')    
@@ -422,9 +465,14 @@ fpga.adcs['rfdc'].progpll('lmx', c[0])
 time.sleep(1)
 
 print('Configuring accumulation period...')
+
 fpga.write_int('acc_len', ACC_LEN_SPLOBS)
+fpga.write_int('acc_len_re_bin', ACC_LEN_SPLOBS)
 fpga.write_int('gain', GAIN)
+fpga.write_int('gain_re_bin', GAIN_RE_BIN)
+
 time.sleep(1)
+
 print('Done')
 
 print('Resetting counters...')
@@ -445,7 +493,7 @@ print(f"Connected to {addr}")
 
 
 recv_from_PIC_thread = threading.Thread(target=receive_from_PIC,args=([conn]))
-process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request, args=([fpga, client]))
+process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request, args=([fpga, client, NFFT]))
 #process_RFSoC_request_thread = threading.Thread(target=process_RFSoC_request)
 sending_data_thread = threading.Thread(target=sending_data, args=([conn]))
 saving_spectra_thread = threading.Thread(target=save_spectra_to_hdd)
